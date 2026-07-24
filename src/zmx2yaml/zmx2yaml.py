@@ -63,6 +63,7 @@ class ZMX2YAML:
     """
 
     _sellmeier_cache = {}
+    _metadata_cache = {}
 
     def __init__(self, prd_file_name=None, wanted_surf_list=None, enpp=None, field_bias=None):
         """
@@ -339,6 +340,8 @@ class ZMX2YAML:
                 if attr == "USER":
                     xs = [float(pt[0]) / conv_coef for pt in data]
                     ys = [float(pt[1]) / conv_coef for pt in data]
+                    # Save center point associated with surface name
+                    ZMX2YAML._metadata_cache[getattr(surface, "COMM", surf_name)] = {'center_point': (xs[-1], ys[-1])}
                     # Remove the last point (center point)
                     xs, ys = xs[:-1], ys[:-1]
                     dims = [xs, ys]
@@ -526,6 +529,21 @@ class ZMX2YAML:
                 "coordSys": self.build_dict_crds(surf_name),
             }
 
+    # def build_dict_stop(self) -> dict:
+    #     """
+    #     Build the dictionary representation of the system STOP surface.
+
+    #     Returns
+    #     -------
+    #     dict
+    #         Dictionary of STOP surface parameters.
+    #     """
+    #     return {
+    #         "type": "Interface",
+    #         "name": "enpp",
+    #         "surface": {"type": "Plane"},
+    #         "coordSys": self.build_dict_crds(self.enpp[0]),
+    #     }
     def build_dict_stop(self) -> dict:
         """
         Build the dictionary representation of the system STOP surface.
@@ -535,12 +553,9 @@ class ZMX2YAML:
         dict
             Dictionary of STOP surface parameters.
         """
-        return {
-            "type": "Interface",
-            "name": "enpp",
-            "surface": {"type": "Plane"},
-            "coordSys": self.build_dict_crds(self.enpp[0]),
-        }
+        d = next(self.build_dict_optc(self.enpp[0]))
+        d["name"] = "enpp"
+        return d
 
     def build_dict_dctr(self) -> dict:
         """
@@ -598,6 +613,12 @@ class ZMX2YAML:
                 **(
                     {"Configurations": self.prd_file.configurations}
                     if self.prd_file.configurations is not None
+                    else {}
+                ),
+                **(
+                    {"centerPoints": {name: list(meta['center_point']) 
+                                    for name, meta in ZMX2YAML._metadata_cache.items()}}
+                    if ZMX2YAML._metadata_cache
                     else {}
                 ),
             }
